@@ -2,6 +2,11 @@
 
 A FastAPI backend for reserving and booking 500 concert seats.
 
+## Hosted API
+
+[https://seatlockig.onrender.com](https://seatlockig.onrender.com) ·
+[API documentation](https://seatlockig.onrender.com/docs)
+
 ## Technology
 
 - **Framework:** FastAPI (Python)
