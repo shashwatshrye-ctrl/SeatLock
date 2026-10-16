@@ -238,6 +238,16 @@ def test_health_does_not_require_database(api_client):
     assert fake_client.calls == []
 
 
+def test_root_returns_health_status(api_client):
+    test_client, fake_client = api_client
+
+    response = test_client.get("/")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+    assert fake_client.calls == []
+
+
 def test_validation_error_invalid_seat_number(api_client):
     test_client, _ = api_client
 

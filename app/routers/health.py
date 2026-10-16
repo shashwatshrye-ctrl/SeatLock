@@ -14,5 +14,12 @@ router = APIRouter(tags=["health"])
         status.HTTP_200_OK: {"description": "Service is live and responding."},
     },
 )
+@router.get(
+    "/",
+    response_model=HealthResponse,
+    summary="Root health check",
+    description="Root endpoint for a simple liveness check.",
+    include_in_schema=False,
+)
 def health() -> HealthResponse:
     return HealthResponse(status="ok")
