@@ -14,6 +14,7 @@ A FastAPI backend for reserving and booking 500 concert seats.
 |---|---|---|
 | `GET` | `/` | Health check |
 | `GET` | `/health` | Health check |
+| `GET` | `/favicon.ico` | Browser tab icon |
 | `GET` | `/seats` | List seats and availability |
 | `GET` | `/seats?available_only=true` | List available seats only |
 | `POST` | `/reservations` | Hold a seat temporarily |

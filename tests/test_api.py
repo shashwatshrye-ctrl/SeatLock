@@ -248,6 +248,16 @@ def test_root_returns_health_status(api_client):
     assert fake_client.calls == []
 
 
+def test_favicon_is_served(api_client):
+    test_client, _ = api_client
+
+    response = test_client.get("/favicon.ico")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/x-icon"
+    assert response.content.startswith(b"\x00\x00\x01\x00")
+
+
 def test_validation_error_invalid_seat_number(api_client):
     test_client, _ = api_client
 
