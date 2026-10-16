@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import Any
 from uuid import UUID
 
@@ -7,6 +8,8 @@ from supabase import Client
 from app.core.errors import TicketingError
 from app.schemas.reservations import PaymentOutcome, ReservationCreate
 
+logger = logging.getLogger("ticketing.reservations")
+
 
 class ReservationService:
     def __init__(self, client: Client, hold_seconds: int):
@@ -14,7 +17,14 @@ class ReservationService:
         self.hold_seconds = hold_seconds
 
     def _rpc(self, name: str, params: dict[str, Any]) -> Any:
-        data = self.client.rpc(name, params).execute().data
+        try:
+            data = self.client.rpc(name, params).execute().data
+        except TicketingError:
+            raise
+        except Exception as exc:
+            logger.error("RPC %s failed with params %s: %s", name, params, exc)
+            raise TicketingError("database_error", status_code=500) from exc
+
         if isinstance(data, dict) and "error" in data:
             raise TicketingError(data["error"])
         return data
@@ -54,7 +64,9 @@ class ReservationService:
             if outcome == PaymentOutcome.failure
             else "confirm_reservation"
         )
-        return self._rpc(
+        # Offload synchronous RPC call to threadpool so event loop remains non-blocking
+        return await asyncio.to_thread(
+            self._rpc,
             rpc_name,
             {
                 "p_reservation_id": str(reservation_id),
