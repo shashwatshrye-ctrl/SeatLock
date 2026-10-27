@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from fastapi import APIRouter, status
 
 from app.routers.dependencies import BookingServiceDependency
@@ -20,7 +18,7 @@ router = APIRouter(prefix="/users", tags=["bookings"])
     },
 )
 def booking_history(
-    user_id: UUID,
+    user_id: int,
     service: BookingServiceDependency,
 ) -> list[ReservationResponse]:
     return service.history(user_id)

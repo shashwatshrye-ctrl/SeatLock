@@ -1,6 +1,5 @@
 from datetime import datetime
 from enum import Enum
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -20,11 +19,6 @@ class ReservationStatus(str, Enum):
 
 
 class ReservationCreate(BaseModel):
-    user_id: UUID = Field(
-        ...,
-        description="Unique identifier of the student making the reservation",
-        examples=["123e4567-e89b-12d3-a456-426614174000"],
-    )
     seat_id: int = Field(
         ...,
         ge=1,
@@ -32,59 +26,68 @@ class ReservationCreate(BaseModel):
         description="Seat number to reserve (1-500)",
         examples=[17],
     )
-    idempotency_key: str = Field(
+    user_id: int = Field(
         ...,
+        ge=1,
+        description="Numeric student/user ID",
+        examples=[1],
+    )
+    idempotency_key: str | None = Field(
+        default=None,
         min_length=1,
         max_length=128,
-        description="Client-generated unique token to guarantee safe retries",
-        examples=["order-checkout-001"],
+        description="Optional unique key to guarantee safe retries (auto-generated if omitted)",
+        examples=["req-001"],
     )
 
 
 class PaymentRequest(BaseModel):
-    user_id: UUID = Field(
+    user_id: int = Field(
         ...,
-        description="Unique identifier of the student confirming the booking",
-        examples=["123e4567-e89b-12d3-a456-426614174000"],
+        ge=1,
+        description="Numeric student/user ID confirming the booking",
+        examples=[1],
     )
     outcome: PaymentOutcome = Field(
-        ...,
-        description="Simulated outcome: 'success', 'failure', or 'delayed'",
+        default=PaymentOutcome.success,
+        description="Payment outcome ('success', 'failure', or 'delayed')",
         examples=[PaymentOutcome.success],
     )
     delay_seconds: int = Field(
-        default=3,
-        ge=1,
+        default=0,
+        ge=0,
         le=30,
         description="Simulated processing delay in seconds when outcome is 'delayed'",
-        examples=[3],
+        examples=[0],
     )
 
 
 class ReservationAction(BaseModel):
-    user_id: UUID = Field(
+    user_id: int = Field(
         ...,
-        description="Unique identifier of the student performing the cancellation",
-        examples=["123e4567-e89b-12d3-a456-426614174000"],
+        ge=1,
+        description="Numeric student/user ID",
+        examples=[1],
     )
 
 
 class ReservationResponse(BaseModel):
-    id: UUID = Field(
+    id: int = Field(
         ...,
-        description="Unique UUID for this reservation record",
-        examples=["123e4567-e89b-12d3-a456-426614174001"],
+        description="Numeric reservation ID",
+        examples=[1],
     )
     seat_id: int = Field(..., ge=1, le=500, description="Seat identifier", examples=[17])
-    user_id: UUID = Field(
+    user_id: int = Field(
         ...,
-        description="Student UUID who placed this reservation",
-        examples=["123e4567-e89b-12d3-a456-426614174000"],
+        ge=1,
+        description="Numeric user ID who placed this reservation",
+        examples=[1],
     )
     idempotency_key: str = Field(
         ...,
         description="Idempotency key supplied with the reservation",
-        examples=["order-checkout-001"],
+        examples=["req-001"],
     )
     status: ReservationStatus = Field(
         ...,

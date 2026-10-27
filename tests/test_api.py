@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta, timezone
-from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,8 +7,8 @@ from app.core.database import get_supabase_client
 from app.core.settings import Settings, get_settings
 from app.main import app
 
-USER_ID = "123e4567-e89b-12d3-a456-426614174000"
-RESERVATION_ID = "123e4567-e89b-12d3-a456-426614174001"
+USER_ID = 101
+RESERVATION_ID = 1
 
 
 class FakeQuery:
@@ -99,6 +98,24 @@ def test_reserve_sends_request_to_database(api_client):
     assert "X-Process-Time" in response.headers
 
 
+def test_reserve_minimal_payload(api_client):
+    test_client, fake_client = api_client
+
+    # Only seat_id and user_id posted!
+    response = test_client.post(
+        "/reservations",
+        json={
+            "seat_id": 17,
+            "user_id": USER_ID,
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["status"] == "reserved"
+    assert fake_client.calls[0][0] == "reserve_seat"
+    assert fake_client.calls[0][1]["p_idempotency_key"].startswith("auto-")
+
+
 def test_unavailable_seat_maps_to_conflict(api_client):
     test_client, fake_client = api_client
     fake_client.responses["reserve_seat"] = {"error": "seat_unavailable"}
@@ -147,6 +164,20 @@ def test_confirmation_endpoint_accepts_successful_payment(api_client):
     response = test_client.post(
         f"/reservations/{RESERVATION_ID}/confirm",
         json={"user_id": USER_ID, "outcome": "success"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "confirmed"
+    assert fake_client.calls[0][0] == "confirm_reservation"
+
+
+def test_confirmation_endpoint_minimal_payload(api_client):
+    test_client, fake_client = api_client
+
+    # Only user_id is sent; outcome defaults to 'success'
+    response = test_client.post(
+        f"/reservations/{RESERVATION_ID}/confirm",
+        json={"user_id": USER_ID},
     )
 
     assert response.status_code == 200

@@ -24,20 +24,19 @@ async def run_contention_test(
     print(f"RACE CONDITION TEST: {requests} users competing for Seat #{seat_id}")
     print("=" * 70)
 
-    user_ids = [str(uuid4()) for _ in range(requests)]
+    user_ids = list(range(1001, 1001 + requests))
     sem = asyncio.Semaphore(concurrency)
     latencies: list[float] = []
 
     async with httpx.AsyncClient(base_url=base_url, timeout=30.0) as client:
-        async def make_request(uid: str):
+        async def make_request(uid: int):
             async with sem:
                 t0 = time.perf_counter()
                 resp = await client.post(
                     "/reservations",
                     json={
-                        "user_id": uid,
                         "seat_id": seat_id,
-                        "idempotency_key": f"load-{uuid4()}",
+                        "user_id": uid,
                     },
                 )
                 latencies.append(time.perf_counter() - t0)

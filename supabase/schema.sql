@@ -3,6 +3,17 @@
 -- Concurrency Architecture: Row Locks + Advisory Locks + Partial Unique Indexes
 -- ==============================================================================
 
+-- Clean up any legacy UUID-based functions if migrating from older schema
+drop function if exists public.reserve_seat(uuid, integer, text, integer);
+drop function if exists public.get_reservation(uuid, uuid);
+drop function if exists public.confirm_reservation(uuid, uuid);
+drop function if exists public.fail_payment(uuid, uuid);
+drop function if exists public.cancel_reservation(uuid, uuid);
+drop function if exists public.booking_history(uuid);
+
+-- Drop legacy UUID-based reservations table if it exists
+drop table if exists public.reservations cascade;
+
 create table if not exists public.seats (
     id integer primary key check (id between 1 and 500),
     label text not null unique
@@ -15,9 +26,9 @@ from generate_series(1, 500) as generated(n)
 on conflict (id) do nothing;
 
 create table if not exists public.reservations (
-    id uuid primary key default gen_random_uuid(),
+    id bigint generated always as identity primary key,
     seat_id integer not null references public.seats(id),
-    user_id uuid not null,
+    user_id bigint not null,
     idempotency_key text not null check (length(idempotency_key) between 1 and 128),
     status text not null check (
         status in ('reserved', 'confirmed', 'cancelled', 'expired', 'payment_failed')
@@ -78,7 +89,7 @@ $$;
 -- 2. Reserve Seat (Atomic Idempotent Lock & Hold)
 -- ------------------------------------------------------------------------------
 create or replace function public.reserve_seat(
-    p_user_id uuid,
+    p_user_id bigint,
     p_seat_id integer,
     p_idempotency_key text,
     p_hold_seconds integer default 300
@@ -149,7 +160,10 @@ $$;
 -- ------------------------------------------------------------------------------
 -- 3. Get Reservation Status
 -- ------------------------------------------------------------------------------
-create or replace function public.get_reservation(p_reservation_id uuid, p_user_id uuid)
+create or replace function public.get_reservation(
+    p_reservation_id bigint,
+    p_user_id bigint default null
+)
 returns jsonb
 language plpgsql
 stable
@@ -161,7 +175,8 @@ declare
 begin
     select * into v_reservation
     from public.reservations
-    where id = p_reservation_id and user_id = p_user_id;
+    where id = p_reservation_id
+      and (p_user_id is null or user_id = p_user_id);
 
     if not found then
         return jsonb_build_object('error', 'reservation_not_found');
@@ -178,7 +193,10 @@ $$;
 -- ------------------------------------------------------------------------------
 -- 4. Confirm Reservation (Payment Success)
 -- ------------------------------------------------------------------------------
-create or replace function public.confirm_reservation(p_reservation_id uuid, p_user_id uuid)
+create or replace function public.confirm_reservation(
+    p_reservation_id bigint,
+    p_user_id bigint
+)
 returns jsonb
 language plpgsql
 security definer
@@ -227,7 +245,10 @@ $$;
 -- ------------------------------------------------------------------------------
 -- 5. Fail Payment
 -- ------------------------------------------------------------------------------
-create or replace function public.fail_payment(p_reservation_id uuid, p_user_id uuid)
+create or replace function public.fail_payment(
+    p_reservation_id bigint,
+    p_user_id bigint
+)
 returns jsonb
 language plpgsql
 security definer
@@ -274,7 +295,10 @@ $$;
 -- ------------------------------------------------------------------------------
 -- 6. Cancel Reservation
 -- ------------------------------------------------------------------------------
-create or replace function public.cancel_reservation(p_reservation_id uuid, p_user_id uuid)
+create or replace function public.cancel_reservation(
+    p_reservation_id bigint,
+    p_user_id bigint
+)
 returns jsonb
 language plpgsql
 security definer
@@ -315,7 +339,7 @@ $$;
 -- ------------------------------------------------------------------------------
 -- 7. Booking History
 -- ------------------------------------------------------------------------------
-create or replace function public.booking_history(p_user_id uuid)
+create or replace function public.booking_history(p_user_id bigint)
 returns jsonb
 language sql
 stable
@@ -370,19 +394,19 @@ alter table public.reservations enable row level security;
 revoke all on table public.seats, public.reservations from anon, authenticated;
 
 revoke all on function public.list_seats(boolean) from public, anon, authenticated;
-revoke all on function public.reserve_seat(uuid, integer, text, integer) from public, anon, authenticated;
-revoke all on function public.get_reservation(uuid, uuid) from public, anon, authenticated;
-revoke all on function public.confirm_reservation(uuid, uuid) from public, anon, authenticated;
-revoke all on function public.fail_payment(uuid, uuid) from public, anon, authenticated;
-revoke all on function public.cancel_reservation(uuid, uuid) from public, anon, authenticated;
-revoke all on function public.booking_history(uuid) from public, anon, authenticated;
+revoke all on function public.reserve_seat(bigint, integer, text, integer) from public, anon, authenticated;
+revoke all on function public.get_reservation(bigint, bigint) from public, anon, authenticated;
+revoke all on function public.confirm_reservation(bigint, bigint) from public, anon, authenticated;
+revoke all on function public.fail_payment(bigint, bigint) from public, anon, authenticated;
+revoke all on function public.cancel_reservation(bigint, bigint) from public, anon, authenticated;
+revoke all on function public.booking_history(bigint) from public, anon, authenticated;
 revoke all on function public.cleanup_expired_reservations() from public, anon, authenticated;
 
 grant execute on function public.list_seats(boolean) to service_role;
-grant execute on function public.reserve_seat(uuid, integer, text, integer) to service_role;
-grant execute on function public.get_reservation(uuid, uuid) to service_role;
-grant execute on function public.confirm_reservation(uuid, uuid) to service_role;
-grant execute on function public.fail_payment(uuid, uuid) to service_role;
-grant execute on function public.cancel_reservation(uuid, uuid) to service_role;
-grant execute on function public.booking_history(uuid) to service_role;
+grant execute on function public.reserve_seat(bigint, integer, text, integer) to service_role;
+grant execute on function public.get_reservation(bigint, bigint) to service_role;
+grant execute on function public.confirm_reservation(bigint, bigint) to service_role;
+grant execute on function public.fail_payment(bigint, bigint) to service_role;
+grant execute on function public.cancel_reservation(bigint, bigint) to service_role;
+grant execute on function public.booking_history(bigint) to service_role;
 grant execute on function public.cleanup_expired_reservations() to service_role;

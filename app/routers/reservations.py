@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from fastapi import APIRouter, Query, status
 
 from app.routers.dependencies import ReservationServiceDependency
@@ -21,8 +19,7 @@ router = APIRouter(prefix="/reservations", tags=["reservations"])
     summary="Reserve a concert seat",
     description=(
         "Places an atomic temporary hold on a seat for the student. "
-        "Guarantees that no two students can hold or book the same seat simultaneously. "
-        "Supports idempotent retries with the same `(user_id, idempotency_key)`."
+        "Requires only `seat_id` and `user_id`. Guarantees no double-booking."
     ),
     responses={
         status.HTTP_201_CREATED: {"description": "Seat successfully reserved."},
@@ -43,16 +40,16 @@ def reserve_seat(
     "/{reservation_id}",
     response_model=ReservationResponse,
     summary="Get reservation status",
-    description="Fetches current status of a reservation. Automatically returns 'expired' if the hold time has elapsed.",
+    description="Fetches current status of a reservation. Automatically returns 'expired' if hold has lapsed.",
     responses={
         status.HTTP_200_OK: {"description": "Reservation details returned."},
-        status.HTTP_404_NOT_FOUND: {"model": ErrorResponse, "description": "Reservation not found for this user."},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorResponse, "description": "Reservation not found."},
     },
 )
 def reservation_status(
-    reservation_id: UUID,
+    reservation_id: int,
     service: ReservationServiceDependency,
-    user_id: UUID = Query(..., description="User UUID owning the reservation"),
+    user_id: int | None = Query(default=None, description="Optional user ID"),
 ) -> ReservationResponse:
     return service.get_status(reservation_id, user_id)
 
@@ -62,8 +59,7 @@ def reservation_status(
     response_model=ReservationResponse,
     summary="Confirm or fail booking with simulated payment",
     description=(
-        "Simulates payment processing. On success, confirms the booking permanently. "
-        "On failure, releases the seat immediately. On delayed, waits `delay_seconds` before confirming."
+        "Simulates payment processing. Requires only `user_id` (outcome defaults to 'success')."
     ),
     responses={
         status.HTTP_200_OK: {"description": "Payment processed and reservation status updated."},
@@ -73,7 +69,7 @@ def reservation_status(
     },
 )
 async def confirm_reservation(
-    reservation_id: UUID,
+    reservation_id: int,
     request: PaymentRequest,
     service: ReservationServiceDependency,
 ) -> ReservationResponse:
@@ -97,7 +93,7 @@ async def confirm_reservation(
     },
 )
 def cancel_reservation(
-    reservation_id: UUID,
+    reservation_id: int,
     request: ReservationAction,
     service: ReservationServiceDependency,
 ) -> ReservationResponse:

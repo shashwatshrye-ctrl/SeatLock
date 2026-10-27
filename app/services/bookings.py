@@ -1,6 +1,5 @@
 import logging
 from typing import Any
-from uuid import UUID
 
 from supabase import Client
 
@@ -13,11 +12,11 @@ class BookingService:
     def __init__(self, client: Client):
         self.client = client
 
-    def history(self, user_id: UUID) -> Any:
+    def history(self, user_id: int) -> Any:
         try:
             response = self.client.rpc(
                 "booking_history",
-                {"p_user_id": str(user_id)},
+                {"p_user_id": user_id},
             ).execute()
             data = response.data
             if isinstance(data, dict) and "error" in data:

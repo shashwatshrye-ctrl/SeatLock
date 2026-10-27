@@ -22,11 +22,11 @@ A FastAPI backend for reserving and booking 500 concert seats.
 | `GET` | `/favicon.ico` | Browser tab icon |
 | `GET` | `/seats` | List seats and availability |
 | `GET` | `/seats?available_only=true` | List available seats only |
-| `POST` | `/reservations` | Hold a seat temporarily |
-| `GET` | `/reservations/{reservation_id}?user_id={user_id}` | Get reservation status |
-| `POST` | `/reservations/{reservation_id}/confirm` | Simulate payment and confirm or fail a reservation |
-| `POST` | `/reservations/{reservation_id}/cancel` | Cancel a reservation or booking |
-| `GET` | `/users/{user_id}/bookings` | Get a user's booking history |
+| `POST` | `/reservations` | Hold a seat (`{"seat_id": 17, "user_id": 1}`) |
+| `GET` | `/reservations/{reservation_id}` | Get reservation status |
+| `POST` | `/reservations/{reservation_id}/confirm` | Confirm booking (`{"user_id": 1}`) |
+| `POST` | `/reservations/{reservation_id}/cancel` | Cancel booking (`{"user_id": 1}`) |
+| `GET` | `/users/{user_id}/bookings` | Get user's booking history |
 
 Interactive API documentation is available at `/docs` when the server is
 running. See the [API Guide](API_GUIDE.md) for setup instructions and example

@@ -1,7 +1,7 @@
 import asyncio
 import logging
+import time
 from typing import Any
-from uuid import UUID
 
 from supabase import Client
 
@@ -30,33 +30,34 @@ class ReservationService:
         return data
 
     def reserve(self, request: ReservationCreate) -> Any:
+        idempotency_key = (
+            request.idempotency_key
+            or f"auto-{request.user_id}-{request.seat_id}-{int(time.time() * 1000)}"
+        )
         return self._rpc(
             "reserve_seat",
             {
-                "p_user_id": str(request.user_id),
+                "p_user_id": request.user_id,
                 "p_seat_id": request.seat_id,
-                "p_idempotency_key": request.idempotency_key,
+                "p_idempotency_key": idempotency_key,
                 "p_hold_seconds": self.hold_seconds,
             },
         )
 
-    def get_status(self, reservation_id: UUID, user_id: UUID) -> Any:
-        return self._rpc(
-            "get_reservation",
-            {
-                "p_reservation_id": str(reservation_id),
-                "p_user_id": str(user_id),
-            },
-        )
+    def get_status(self, reservation_id: int, user_id: int | None = None) -> Any:
+        params: dict[str, Any] = {"p_reservation_id": reservation_id}
+        if user_id is not None:
+            params["p_user_id"] = user_id
+        return self._rpc("get_reservation", params)
 
     async def process_payment(
         self,
-        reservation_id: UUID,
-        user_id: UUID,
+        reservation_id: int,
+        user_id: int,
         outcome: PaymentOutcome,
         delay_seconds: int,
     ) -> Any:
-        if outcome == PaymentOutcome.delayed:
+        if outcome == PaymentOutcome.delayed and delay_seconds > 0:
             await asyncio.sleep(delay_seconds)
 
         rpc_name = (
@@ -69,16 +70,16 @@ class ReservationService:
             self._rpc,
             rpc_name,
             {
-                "p_reservation_id": str(reservation_id),
-                "p_user_id": str(user_id),
+                "p_reservation_id": reservation_id,
+                "p_user_id": user_id,
             },
         )
 
-    def cancel(self, reservation_id: UUID, user_id: UUID) -> Any:
+    def cancel(self, reservation_id: int, user_id: int) -> Any:
         return self._rpc(
             "cancel_reservation",
             {
-                "p_reservation_id": str(reservation_id),
-                "p_user_id": str(user_id),
+                "p_reservation_id": reservation_id,
+                "p_user_id": user_id,
             },
         )
